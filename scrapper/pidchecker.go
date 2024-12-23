@@ -27,7 +27,9 @@ func (s *PIDChecker) Scrape(channel chan subject.Subject, sleep time.Duration) {
 					if !s.Driver.Exists(pid) {
 						channel <- notification.NotificationProcessEnd{PID: pid}
 					}
-
+				}
+				for _, process := range s.Driver.GetSubjects() {
+					channel <- process
 				}
 				time.Sleep(sleep)
 			}

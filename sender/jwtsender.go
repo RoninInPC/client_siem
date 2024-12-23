@@ -26,14 +26,15 @@ type JWTSender struct {
 	methods    map[string]CommandJWT
 }
 
-func InitJWTSender(hostServer string) *JWTSender {
-	return &JWTSender{HostServer: hostServer,
+func InitJWTSender(hostSubject string, hostSyscall string) *JWTSender {
+	return &JWTSender{HostServer: hostSubject,
 		methods: map[string]CommandJWT{
-			"init_server": CommandJWTPostForm{Address: hostServer},
-			"init":        CommandJWTPostForm{Address: hostServer},
-			"new":         CommandJWTPostForm{Address: hostServer},
-			"update":      CommandJWTUpdate{Address: hostServer},
-			"delete":      CommandJWTDelete{Address: hostServer},
+			"init_server": CommandJWTPostForm{Address: hostSubject},
+			"init":        CommandJWTPostForm{Address: hostSubject},
+			"new":         CommandJWTPostForm{Address: hostSubject},
+			"update":      CommandJWTUpdate{Address: hostSubject},
+			"delete":      CommandJWTDelete{Address: hostSubject},
+			"syscall":     CommandJWTPostForm{Address: hostSyscall},
 		}}
 }
 

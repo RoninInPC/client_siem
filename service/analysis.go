@@ -46,7 +46,16 @@ func (a Analysis) Work() {
 					hostinfo.GetHostInfo(),
 					sub))
 				continue
-
+			}
+			if sub.Type() == subject.ProcessT {
+				if !a.Storage.Exists(sub) {
+					a.Storage.Update(sub)
+					a.Sender.Send(subject.InitMessage(
+						"update",
+						"update",
+						hostinfo.GetHostInfo(),
+						sub))
+				}
 			}
 
 		}
