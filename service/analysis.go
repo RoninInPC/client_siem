@@ -7,6 +7,7 @@ import (
 	"client_siem/scrapper"
 	"client_siem/sender"
 	"client_siem/storage"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ type Analysis struct {
 }
 
 func (a Analysis) Work() {
+	pid := strconv.Itoa(os.Getpid())
 	channel := make(chan subject.Subject)
 	for _, s := range a.Scrappers {
 		s.Scrape(channel, a.SleepDuration)
@@ -29,12 +31,17 @@ func (a Analysis) Work() {
 	go func() {
 		for sub := range channel {
 			if sub.Type() == subject.SyscallT {
+				syscall := sub.(subject.Syscall)
+
+				if syscall.PID == pid {
+					continue
+				}
+
 				a.Sender.Send(subject.InitMessage(
 					"syscall",
 					"syscall",
 					hostinfo.GetHostInfo(),
 					sub))
-				syscall := sub.(subject.Syscall)
 				syscallAnalyticsMap[sub.Name()](&a, syscall.Args, syscall.Ret)
 			}
 			if sub.Type() == subject.ProcessEnd {
