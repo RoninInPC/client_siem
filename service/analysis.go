@@ -95,12 +95,6 @@ func (a Analysis) Work() {
 						sub))
 				}
 			}
-			if sub.Type() == subject.UserT {
-
-			}
-			if sub.Type() == subject.PortTablesT {
-
-			}
 
 		}
 	}()
