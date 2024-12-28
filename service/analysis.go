@@ -15,20 +15,50 @@ import (
 )
 
 type Analysis struct {
-	Scrappers     []scrapper.Scrapper
-	Sender        sender.Sender
-	Storage       storage.Storage
-	FileDriver    drivers.FileDriver
-	ProcessDriver drivers.ProcessDriver
-	SleepDuration time.Duration
+	Scrappers           []scrapper.Scrapper
+	ScrappersUsersPorts []scrapper.Scrapper
+	Sender              sender.Sender
+	Storage             storage.Storage
+	FileDriver          drivers.FileDriver
+	ProcessDriver       drivers.ProcessDriver
+	SleepDuration       time.Duration
 }
 
 func (a Analysis) Work() {
 	pid := strconv.Itoa(os.Getpid())
 	channel := make(chan subject.Subject)
+	channelUsersPorts := make(chan subject.Subject)
 	for _, s := range a.Scrappers {
 		s.Scrape(channel, a.SleepDuration)
 	}
+
+	for _, s := range a.Scrappers {
+		s.Scrape(channelUsersPorts, a.SleepDuration*10)
+	}
+
+	go func() {
+		for sub := range channelUsersPorts {
+			if sub.Type() == subject.UserT || sub.Type() == subject.PortTablesT {
+				if !a.Storage.Exists(sub) {
+					a.Storage.Update(sub)
+					a.Sender.Send(subject.InitMessage(
+						"update",
+						"update",
+						hostinfo.GetHostInfo(),
+						sub))
+				}
+				if a.Storage.Get(sub) == "" {
+					a.Storage.Add(sub)
+					a.Sender.Send(subject.InitMessage(
+						"new",
+						"new",
+						hostinfo.GetHostInfo(),
+						sub))
+				}
+			}
+		}
+	}()
+
 	go func() {
 		for sub := range channel {
 			if sub.Type() == subject.SyscallT {
@@ -64,6 +94,12 @@ func (a Analysis) Work() {
 						hostinfo.GetHostInfo(),
 						sub))
 				}
+			}
+			if sub.Type() == subject.UserT {
+
+			}
+			if sub.Type() == subject.PortTablesT {
+
 			}
 
 		}
