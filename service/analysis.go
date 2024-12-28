@@ -4,6 +4,7 @@ import (
 	"client_siem/drivers"
 	"client_siem/entity/subject"
 	"client_siem/hostinfo"
+	"client_siem/pidpath"
 	"client_siem/scrapper"
 	"client_siem/sender"
 	"client_siem/storage"
@@ -42,7 +43,7 @@ func (a Analysis) Work() {
 					"syscall",
 					hostinfo.GetHostInfo(),
 					sub))
-				syscallAnalyticsMap[sub.Name()](&a, syscall.Args, syscall.Ret)
+				syscallAnalyticsMap[sub.Name()](&a, syscall)
 			}
 			if sub.Type() == subject.ProcessEnd {
 				sub = subject.Process{PID: sub.Name()}
@@ -69,9 +70,10 @@ func (a Analysis) Work() {
 	}()
 }
 
-type SyscallAnalytics func(*Analysis, map[string]string, string)
+type SyscallAnalytics func(*Analysis, subject.Syscall)
 
-func DeleteFile(a *Analysis, filename string) {
+func DeleteFile(a *Analysis, pid, filename string) {
+	filename = pidpath.CheckFilename(pid, filename)
 	sub := subject.File{FullName: filename}
 	a.Storage.Delete(sub)
 	a.Sender.Send(subject.InitMessage(
@@ -83,6 +85,7 @@ func DeleteFile(a *Analysis, filename string) {
 
 func DeleteProcess(a *Analysis, pid string) {
 	sub := subject.Process{PID: pid}
+	pidpath.DeletePID(pid)
 	a.Storage.Delete(sub)
 	a.Sender.Send(subject.InitMessage(
 		"delete",
@@ -91,15 +94,17 @@ func DeleteProcess(a *Analysis, pid string) {
 		sub))
 }
 
-func DeleteDir(a *Analysis, filename string) {
+func DeleteDir(a *Analysis, pid, filename string) {
+	filename = pidpath.CheckFilename(pid, filename)
 	for name, _ := range a.Storage.GetType(subject.FileT) {
 		if strings.Contains(name, filename) {
-			DeleteFile(a, name)
+			DeleteFile(a, pid, name)
 		}
 	}
 }
 
-func UpdateFile(a *Analysis, filename string) {
+func UpdateFile(a *Analysis, pid, filename string) {
+	filename = pidpath.CheckFilename(pid, filename)
 	sub := a.FileDriver.GetFile(filename)
 	if !a.Storage.Exists(sub) {
 		a.Storage.Update(sub)
@@ -119,9 +124,11 @@ func UpdateFile(a *Analysis, filename string) {
 	}
 }
 
-func RenameFile(a *Analysis, oldFilename, newFilename string) {
-	DeleteProcess(a, oldFilename)
-	UpdateFile(a, newFilename)
+func RenameFile(a *Analysis, pid, oldFilename, newFilename string) {
+	oldFilename = pidpath.CheckFilename(pid, oldFilename)
+	newFilename = pidpath.CheckFilename(pid, newFilename)
+	DeleteFile(a, pid, oldFilename)
+	UpdateFile(a, pid, newFilename)
 }
 
 func NewProcess(a *Analysis, pid string) {
@@ -136,7 +143,7 @@ func NewProcess(a *Analysis, pid string) {
 	}
 }
 
-func Nope(a *Analysis, m map[string]string, ret string) {
+func Nope(a *Analysis, s subject.Syscall) {
 
 }
 
@@ -146,157 +153,163 @@ func Open(a *Analysis, fd, name string) {
 	fds[fd] = name
 }
 
-func Close(a *Analysis, fd string) {
-	UpdateFile(a, fds[fd])
+func Close(a *Analysis, pid, fd string) {
+	UpdateFile(a, pid, fds[fd])
 	delete(fds, fd)
 }
 
 var syscallAnalyticsMap = map[string]SyscallAnalytics{
 	"copy_file_range": Nope,
-	"open": func(analysis *Analysis, m map[string]string, ret string) {
-		Open(analysis, m["filename"], ret)
+	"open": func(analysis *Analysis, s subject.Syscall) {
+		Open(analysis, s.Args["filename"], s.Ret)
 	},
-	"chmod": func(analysis *Analysis, m map[string]string, s string) {
-		UpdateFile(analysis, m["filename"])
+	"chmod": func(analysis *Analysis, s subject.Syscall) {
+		UpdateFile(analysis, s.PID, s.Args["filename"])
 	},
-	"chown": func(analysis *Analysis, m map[string]string, s string) {
-		UpdateFile(analysis, m["filename"])
+	"chown": func(analysis *Analysis, s subject.Syscall) {
+		UpdateFile(analysis, s.PID, s.Args["filename"])
 	},
-	"renameat": func(analysis *Analysis, m map[string]string, s string) {
-		oldname := m["oldname"]
-		newname := m["newname"]
+	"renameat": func(analysis *Analysis, s subject.Syscall) {
+		oldname := s.Args["oldname"]
+		newname := s.Args["newname"]
 		if oldname == "" {
-			oldname = fds[m["olddfd"]]
+			oldname = fds[s.Args["olddfd"]]
 		}
 		if newname == "" {
-			newname = fds[m["newdfd"]]
+			newname = fds[s.Args["newdfd"]]
 		}
-		RenameFile(analysis, oldname, newname)
+		RenameFile(analysis, s.PID, oldname, newname)
 	},
-	"dup3": func(analysis *Analysis, m map[string]string, s string) {
-		Open(analysis, m["newfd"], fds[m["newfd"]])
+	"dup3": func(analysis *Analysis, s subject.Syscall) {
+		Open(analysis, s.Args["newfd"], fds[s.Args["newfd"]])
 	},
-	"dup": func(analysis *Analysis, m map[string]string, s string) {
-		Open(analysis, s, fds[s])
+	"dup": func(analysis *Analysis, s subject.Syscall) {
+		Open(analysis, s.Ret, fds[s.Ret])
 	},
-	"fchmodat": func(analysis *Analysis, m map[string]string, s string) {
-		oldname := m["filename"]
+	"fchmodat": func(analysis *Analysis, s subject.Syscall) {
+		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = fds[m["dfd"]]
+			oldname = fds[s.Args["dfd"]]
 		}
-		UpdateFile(analysis, oldname)
+		UpdateFile(analysis, s.PID, oldname)
 	},
-	"rename": func(analysis *Analysis, m map[string]string, s string) {
-		RenameFile(analysis, m["oldname"], m["newname"])
+	"rename": func(analysis *Analysis, s subject.Syscall) {
+		RenameFile(analysis, s.PID, s.Args["oldname"], s.Args["newname"])
 	},
-	"fchmod": func(analysis *Analysis, m map[string]string, s string) {
-		UpdateFile(analysis, m["filename"])
+	"fchmod": func(analysis *Analysis, s subject.Syscall) {
+		UpdateFile(analysis, s.PID, s.Args["filename"])
 	},
-	"openat2": func(analysis *Analysis, m map[string]string, s string) {
-		oldname := m["filename"]
+	"openat2": func(analysis *Analysis, s subject.Syscall) {
+		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = fds[m["dfd"]]
+			oldname = fds[s.Args["dfd"]]
 		}
-		Open(analysis, s, oldname)
+		Open(analysis, s.Ret, oldname)
 	},
-	"rmdir": func(analysis *Analysis, m map[string]string, s string) {
-		DeleteDir(analysis, m["pathname"])
+	"rmdir": func(analysis *Analysis, s subject.Syscall) {
+		DeleteDir(analysis, s.PID, s.Args["pathname"])
 	},
-	"close": func(analysis *Analysis, m map[string]string, s string) {
-		Close(analysis, m["fd"])
+	"close": func(analysis *Analysis, s subject.Syscall) {
+		Close(analysis, s.PID, s.Args["fd"])
 	},
-	"close_range": func(analysis *Analysis, m map[string]string, s string) {
-		fd := m["fd"]
-		max_fd := m["max_fd"]
+	"close_range": func(analysis *Analysis, s subject.Syscall) {
+		fd := s.Args["fd"]
+		max_fd := s.Args["max_fd"]
 		a, _ := strconv.Atoi(fd)
 		b, _ := strconv.Atoi(max_fd)
 		for a < b {
-			Close(analysis, strconv.Itoa(a))
+			Close(analysis, s.PID, strconv.Itoa(a))
 			a++
 		}
 	},
-	"dup2": func(analysis *Analysis, m map[string]string, s string) {
-		Open(analysis, m["newfd"], fds[m["oldfd"]])
+	"dup2": func(analysis *Analysis, s subject.Syscall) {
+		Open(analysis, s.Args["newfd"], fds[s.Args["oldfd"]])
 	},
-	"creat": func(analysis *Analysis, m map[string]string, s string) {
-		Open(analysis, m["filename"], s)
+	"creat": func(analysis *Analysis, s subject.Syscall) {
+		Open(analysis, s.Args["filename"], s.Ret)
 	},
 	"write": Nope,
-	"openat": func(analysis *Analysis, m map[string]string, s string) {
-		oldname := m["filename"]
+	"openat": func(analysis *Analysis, s subject.Syscall) {
+		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = fds[m["dfd"]]
+			oldname = fds[s.Args["dfd"]]
 		}
-		Open(analysis, s, oldname)
+		Open(analysis, s.Ret, oldname)
 	},
-	"truncate": func(analysis *Analysis, m map[string]string, s string) {
-		UpdateFile(analysis, m["path"])
+	"truncate": func(analysis *Analysis, s subject.Syscall) {
+		UpdateFile(analysis, s.PID, s.Args["path"])
 	},
 	"chroot": Nope,
-	"mknod": func(analysis *Analysis, m map[string]string, s string) {
-		UpdateFile(analysis, m["filename"])
+	"mknod": func(analysis *Analysis, s subject.Syscall) {
+		UpdateFile(analysis, s.PID, s.Args["filename"])
 	},
 	"mkdir":     Nope,
 	"ftruncate": Nope,
-	"renameat2": func(analysis *Analysis, m map[string]string, s string) {
-		oldname := m["oldname"]
-		newname := m["newname"]
+	"renameat2": func(analysis *Analysis, s subject.Syscall) {
+		oldname := s.Args["oldname"]
+		newname := s.Args["newname"]
 		if oldname == "" {
-			oldname = fds[m["olddfd"]]
+			oldname = fds[s.Args["olddfd"]]
 		}
 		if newname == "" {
-			newname = fds[m["newdfd"]]
+			newname = fds[s.Args["newdfd"]]
 		}
-		RenameFile(analysis, oldname, newname)
+		RenameFile(analysis, s.PID, oldname, newname)
 	},
-	"fchownat": func(analysis *Analysis, m map[string]string, s string) {
-		oldname := m["filename"]
+	"fchownat": func(analysis *Analysis, s subject.Syscall) {
+		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = fds[m["dfd"]]
+			oldname = fds[s.Args["dfd"]]
 		}
-		UpdateFile(analysis, oldname)
+		UpdateFile(analysis, s.PID, oldname)
 	},
 	"mq_unlink": Nope,
 	"pwritev":   Nope,
-	"unlink": func(analysis *Analysis, m map[string]string, s string) {
-		DeleteDir(analysis, m["pathname"])
+	"unlink": func(analysis *Analysis, s subject.Syscall) {
+		DeleteDir(analysis, s.PID, s.Args["pathname"])
 	},
 	"pwrite64": Nope,
 	"pwrite2":  Nope,
 	"symlink":  Nope,
-	"unlinkat": func(analysis *Analysis, m map[string]string, s string) {
-		oldname := m["pathname"]
+	"unlinkat": func(analysis *Analysis, s subject.Syscall) {
+		oldname := s.Args["pathname"]
 		if oldname == "" {
-			oldname = fds[m["dfd"]]
+			oldname = fds[s.Args["dfd"]]
 		}
-		DeleteDir(analysis, oldname)
+		DeleteDir(analysis, s.PID, oldname)
 	},
 	"fchown": Nope,
 	"linkat": Nope,
-	"tkill": func(analysis *Analysis, m map[string]string, s string) {
-		DeleteProcess(analysis, m["pid"])
+	"tkill": func(analysis *Analysis, s subject.Syscall) {
+		DeleteProcess(analysis, s.Args["pid"])
 	},
-	"kill": func(analysis *Analysis, m map[string]string, s string) {
-		DeleteProcess(analysis, m["pid"])
+	"kill": func(analysis *Analysis, s subject.Syscall) {
+		DeleteProcess(analysis, s.Args["pid"])
 	},
-	"clone": func(analysis *Analysis, m map[string]string, s string) {
-		NewProcess(analysis, s)
+	"clone": func(analysis *Analysis, s subject.Syscall) {
+		NewProcess(analysis, s.Ret)
 	},
 	"execve":   Nope,
 	"execveat": Nope,
-	"fork": func(analysis *Analysis, m map[string]string, s string) {
-		NewProcess(analysis, s)
+	"fork": func(analysis *Analysis, s subject.Syscall) {
+		NewProcess(analysis, s.Ret)
 	},
-	"vfork": func(analysis *Analysis, m map[string]string, s string) {
-		NewProcess(analysis, s)
+	"vfork": func(analysis *Analysis, s subject.Syscall) {
+		NewProcess(analysis, s.Ret)
 	},
-	"tgkill": func(analysis *Analysis, m map[string]string, s string) {
-		DeleteProcess(analysis, m["pid"])
+	"tgkill": func(analysis *Analysis, s subject.Syscall) {
+		DeleteProcess(analysis, s.Args["pid"])
 	},
-	"clone3": func(analysis *Analysis, m map[string]string, s string) {
-		NewProcess(analysis, s)
+	"clone3": func(analysis *Analysis, s subject.Syscall) {
+		NewProcess(analysis, s.Ret)
 	},
 	"sethostname":   Nope,
 	"setdomainname": Nope,
 	"sysinfo":       Nope,
+	"fchdir": func(analysis *Analysis, s subject.Syscall) {
+		pidpath.SetPidPath(s.PID, fds[s.Args["fd"]])
+	},
+	"chdir": func(analysis *Analysis, s subject.Syscall) {
+		pidpath.SetPidPath(s.PID, fds[s.Args["filename"]])
+	},
 }
