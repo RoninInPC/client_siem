@@ -4,60 +4,36 @@ import (
 	"client_siem/drivers"
 	"client_siem/entity/subject"
 	"client_siem/hostinfo"
-	"client_siem/pidpath"
 	"client_siem/scrapper"
 	"client_siem/sender"
-	"client_siem/storage"
+	"client_siem/storagefd"
+	"client_siem/storagesubjects"
+	"github.com/RoninInPC/pwdx"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type Analysis struct {
-	Scrappers           []scrapper.Scrapper
-	ScrappersUsersPorts []scrapper.Scrapper
-	Sender              sender.Sender
-	Storage             storage.Storage
-	FileDriver          drivers.FileDriver
-	ProcessDriver       drivers.ProcessDriver
-	SleepDuration       time.Duration
+	Scrappers     []scrapper.Scrapper
+	Sender        sender.Sender
+	Storage       storagesubjects.Storage
+	StorageFD     storagefd.StorageFD
+	FileDriver    drivers.FileDriver
+	ProcessDriver drivers.ProcessDriver
+	UserDriver    drivers.UserDriver
+	PortDriver    drivers.PortTablesDriver
+	SleepDuration time.Duration
 }
 
 func (a Analysis) Work() {
 	pid := strconv.Itoa(os.Getpid())
 	channel := make(chan subject.Subject)
-	channelUsersPorts := make(chan subject.Subject)
 	for _, s := range a.Scrappers {
 		s.Scrape(channel, a.SleepDuration)
 	}
-
-	for _, s := range a.Scrappers {
-		s.Scrape(channelUsersPorts, a.SleepDuration*10)
-	}
-
-	go func() {
-		for sub := range channelUsersPorts {
-			if sub.Type() == subject.UserT || sub.Type() == subject.PortTablesT {
-				if !a.Storage.Exists(sub) {
-					a.Storage.Update(sub)
-					a.Sender.Send(subject.InitMessage(
-						"update",
-						"update",
-						hostinfo.GetHostInfo(),
-						sub))
-				}
-				if a.Storage.Get(sub) == "" {
-					a.Storage.Add(sub)
-					a.Sender.Send(subject.InitMessage(
-						"new",
-						"new",
-						hostinfo.GetHostInfo(),
-						sub))
-				}
-			}
-		}
-	}()
 
 	go func() {
 		for sub := range channel {
@@ -72,7 +48,9 @@ func (a Analysis) Work() {
 					"syscall",
 					"syscall",
 					hostinfo.GetHostInfo(),
-					sub))
+					sub,
+					syscall.PID,
+					syscall.Username))
 				syscallAnalyticsMap[sub.Name()](&a, syscall)
 			}
 			if sub.Type() == subject.ProcessEnd {
@@ -82,7 +60,10 @@ func (a Analysis) Work() {
 					"delete",
 					"delete",
 					hostinfo.GetHostInfo(),
-					sub))
+					sub,
+					sub.Name(),
+					"",
+				))
 				continue
 			}
 			if sub.Type() == subject.ProcessT {
@@ -92,7 +73,9 @@ func (a Analysis) Work() {
 						"update",
 						"update",
 						hostinfo.GetHostInfo(),
-						sub))
+						sub,
+						sub.Name(),
+						""))
 				}
 			}
 
@@ -100,41 +83,55 @@ func (a Analysis) Work() {
 	}()
 }
 
+func GetFullFileNameByProcess(pid string, filename string) string {
+	pidInt, _ := strconv.Atoi(pid)
+	if path.Base(filename) == filename {
+		return pwdx.Pwdx(pidInt).Dir() + filename
+	}
+	return filename
+}
+
 type SyscallAnalytics func(*Analysis, subject.Syscall)
 
-func DeleteFile(a *Analysis, pid, filename string) {
-	filename = pidpath.CheckFilename(pid, filename)
+func DeleteFile(a *Analysis, pid, username, filename string) {
+	filename = GetFullFileNameByProcess(pid, filename)
 	sub := subject.File{FullName: filename}
 	a.Storage.Delete(sub)
 	a.Sender.Send(subject.InitMessage(
 		"delete",
 		"delete",
 		hostinfo.GetHostInfo(),
-		sub))
+		sub,
+		pid,
+		username))
 }
 
-func DeleteProcess(a *Analysis, pid string) {
+func DeleteProcess(a *Analysis, pid, username string) {
 	sub := subject.Process{PID: pid}
-	pidpath.DeletePID(pid)
 	a.Storage.Delete(sub)
 	a.Sender.Send(subject.InitMessage(
 		"delete",
 		"delete",
 		hostinfo.GetHostInfo(),
-		sub))
+		sub,
+		pid,
+		username))
 }
 
-func DeleteDir(a *Analysis, pid, filename string) {
-	filename = pidpath.CheckFilename(pid, filename)
+func DeleteDir(a *Analysis, pid, username, filename string) {
+	filename = GetFullFileNameByProcess(pid, filename)
 	for name, _ := range a.Storage.GetType(subject.FileT) {
 		if strings.Contains(name, filename) {
-			DeleteFile(a, pid, name)
+			DeleteFile(a, pid, username, name)
 		}
 	}
 }
 
-func UpdateFile(a *Analysis, pid, filename string) {
-	filename = pidpath.CheckFilename(pid, filename)
+func UpdateFile(a *Analysis, pid, username, filename string) {
+	filename = GetFullFileNameByProcess(pid, filename)
+	if a.AnalysisUserPort(pid, username, filename) {
+		return
+	}
 	sub := a.FileDriver.GetFile(filename)
 	if !a.Storage.Exists(sub) {
 		a.Storage.Update(sub)
@@ -142,7 +139,9 @@ func UpdateFile(a *Analysis, pid, filename string) {
 			"update",
 			"update",
 			hostinfo.GetHostInfo(),
-			sub))
+			sub,
+			pid,
+			username))
 	}
 	if a.Storage.Get(sub) == "" {
 		a.Storage.Add(sub)
@@ -150,18 +149,20 @@ func UpdateFile(a *Analysis, pid, filename string) {
 			"new",
 			"new",
 			hostinfo.GetHostInfo(),
-			sub))
+			sub,
+			pid,
+			username))
 	}
 }
 
-func RenameFile(a *Analysis, pid, oldFilename, newFilename string) {
-	oldFilename = pidpath.CheckFilename(pid, oldFilename)
-	newFilename = pidpath.CheckFilename(pid, newFilename)
-	DeleteFile(a, pid, oldFilename)
-	UpdateFile(a, pid, newFilename)
+func RenameFile(a *Analysis, pid, username, oldFilename, newFilename string) {
+	oldFilename = GetFullFileNameByProcess(pid, oldFilename)
+	newFilename = GetFullFileNameByProcess(pid, newFilename)
+	DeleteFile(a, pid, username, oldFilename)
+	UpdateFile(a, pid, username, newFilename)
 }
 
-func NewProcess(a *Analysis, pid string) {
+func NewProcess(a *Analysis, pid, username string) {
 	sub := a.ProcessDriver.GetProcess(pid)
 	if a.Storage.Get(sub) == "" {
 		a.Storage.Add(sub)
@@ -169,7 +170,9 @@ func NewProcess(a *Analysis, pid string) {
 			"new",
 			"new",
 			hostinfo.GetHostInfo(),
-			sub))
+			sub,
+			pid,
+			username))
 	}
 }
 
@@ -177,70 +180,68 @@ func Nope(a *Analysis, s subject.Syscall) {
 
 }
 
-var fds = map[string]string{}
-
-func Open(a *Analysis, fd, name string) {
-	fds[fd] = name
+func Open(a *Analysis, pid, fd, name string) {
+	a.StorageFD.Add(pid, fd, name)
 }
 
-func Close(a *Analysis, pid, fd string) {
-	UpdateFile(a, pid, fds[fd])
-	delete(fds, fd)
+func Close(a *Analysis, pid, username, fd string) {
+	UpdateFile(a, pid, username, a.StorageFD.Get(pid, fd))
+	a.StorageFD.Delete(pid, fd)
 }
 
 var syscallAnalyticsMap = map[string]SyscallAnalytics{
 	"copy_file_range": Nope,
 	"open": func(analysis *Analysis, s subject.Syscall) {
-		Open(analysis, s.Args["filename"], s.Ret)
+		Open(analysis, s.PID, s.Ret, s.Args["filename"])
 	},
 	"chmod": func(analysis *Analysis, s subject.Syscall) {
-		UpdateFile(analysis, s.PID, s.Args["filename"])
+		UpdateFile(analysis, s.PID, s.Username, s.Args["filename"])
 	},
 	"chown": func(analysis *Analysis, s subject.Syscall) {
-		UpdateFile(analysis, s.PID, s.Args["filename"])
+		UpdateFile(analysis, s.PID, s.Username, s.Args["filename"])
 	},
 	"renameat": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["oldname"]
 		newname := s.Args["newname"]
 		if oldname == "" {
-			oldname = fds[s.Args["olddfd"]]
+			oldname = analysis.StorageFD.Get(s.PID, s.Args["olddfd"])
 		}
 		if newname == "" {
-			newname = fds[s.Args["newdfd"]]
+			newname = analysis.StorageFD.Get(s.PID, s.Args["newdfd"])
 		}
-		RenameFile(analysis, s.PID, oldname, newname)
+		RenameFile(analysis, s.PID, s.Username, oldname, newname)
 	},
 	"dup3": func(analysis *Analysis, s subject.Syscall) {
-		Open(analysis, s.Args["newfd"], fds[s.Args["newfd"]])
+		Open(analysis, s.PID, s.Ret, analysis.StorageFD.Get(s.PID, s.Args["oldfd"]))
 	},
 	"dup": func(analysis *Analysis, s subject.Syscall) {
-		Open(analysis, s.Ret, fds[s.Ret])
+		Open(analysis, s.PID, s.Ret, analysis.StorageFD.Get(s.PID, s.Args["oldfd"]))
 	},
 	"fchmodat": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = fds[s.Args["dfd"]]
+			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
 		}
-		UpdateFile(analysis, s.PID, oldname)
+		UpdateFile(analysis, s.PID, s.Username, oldname)
 	},
 	"rename": func(analysis *Analysis, s subject.Syscall) {
-		RenameFile(analysis, s.PID, s.Args["oldname"], s.Args["newname"])
+		RenameFile(analysis, s.PID, s.Username, s.Args["oldname"], s.Args["newname"])
 	},
 	"fchmod": func(analysis *Analysis, s subject.Syscall) {
-		UpdateFile(analysis, s.PID, s.Args["filename"])
+		UpdateFile(analysis, s.PID, s.Username, s.Args["filename"])
 	},
 	"openat2": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = fds[s.Args["dfd"]]
+			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
 		}
-		Open(analysis, s.Ret, oldname)
+		Open(analysis, s.PID, s.Ret, oldname)
 	},
 	"rmdir": func(analysis *Analysis, s subject.Syscall) {
-		DeleteDir(analysis, s.PID, s.Args["pathname"])
+		DeleteDir(analysis, s.PID, s.Username, s.Args["pathname"])
 	},
 	"close": func(analysis *Analysis, s subject.Syscall) {
-		Close(analysis, s.PID, s.Args["fd"])
+		Close(analysis, s.PID, s.Username, s.Args["fd"])
 	},
 	"close_range": func(analysis *Analysis, s subject.Syscall) {
 		fd := s.Args["fd"]
@@ -248,30 +249,30 @@ var syscallAnalyticsMap = map[string]SyscallAnalytics{
 		a, _ := strconv.Atoi(fd)
 		b, _ := strconv.Atoi(max_fd)
 		for a < b {
-			Close(analysis, s.PID, strconv.Itoa(a))
+			Close(analysis, s.PID, s.Username, strconv.Itoa(a))
 			a++
 		}
 	},
 	"dup2": func(analysis *Analysis, s subject.Syscall) {
-		Open(analysis, s.Args["newfd"], fds[s.Args["oldfd"]])
+		Open(analysis, s.PID, s.Ret, analysis.StorageFD.Get(s.PID, s.Args["oldfd"]))
 	},
 	"creat": func(analysis *Analysis, s subject.Syscall) {
-		Open(analysis, s.Args["filename"], s.Ret)
+		Open(analysis, s.PID, s.Ret, s.Args["filename"])
 	},
 	"write": Nope,
 	"openat": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = fds[s.Args["dfd"]]
+			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
 		}
-		Open(analysis, s.Ret, oldname)
+		Open(analysis, s.PID, s.Ret, oldname)
 	},
 	"truncate": func(analysis *Analysis, s subject.Syscall) {
-		UpdateFile(analysis, s.PID, s.Args["path"])
+		UpdateFile(analysis, s.PID, s.Username, s.Args["path"])
 	},
 	"chroot": Nope,
 	"mknod": func(analysis *Analysis, s subject.Syscall) {
-		UpdateFile(analysis, s.PID, s.Args["filename"])
+		UpdateFile(analysis, s.PID, s.Username, s.Args["filename"])
 	},
 	"mkdir":     Nope,
 	"ftruncate": Nope,
@@ -279,24 +280,24 @@ var syscallAnalyticsMap = map[string]SyscallAnalytics{
 		oldname := s.Args["oldname"]
 		newname := s.Args["newname"]
 		if oldname == "" {
-			oldname = fds[s.Args["olddfd"]]
+			oldname = analysis.StorageFD.Get(s.PID, s.Args["olddfd"])
 		}
 		if newname == "" {
-			newname = fds[s.Args["newdfd"]]
+			newname = analysis.StorageFD.Get(s.PID, s.Args["newdfd"])
 		}
-		RenameFile(analysis, s.PID, oldname, newname)
+		RenameFile(analysis, s.PID, s.Username, oldname, newname)
 	},
 	"fchownat": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = fds[s.Args["dfd"]]
+			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
 		}
-		UpdateFile(analysis, s.PID, oldname)
+		UpdateFile(analysis, s.PID, s.Username, oldname)
 	},
 	"mq_unlink": Nope,
 	"pwritev":   Nope,
 	"unlink": func(analysis *Analysis, s subject.Syscall) {
-		DeleteDir(analysis, s.PID, s.Args["pathname"])
+		DeleteDir(analysis, s.PID, s.Username, s.Args["pathname"])
 	},
 	"pwrite64": Nope,
 	"pwrite2":  Nope,
@@ -304,42 +305,143 @@ var syscallAnalyticsMap = map[string]SyscallAnalytics{
 	"unlinkat": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["pathname"]
 		if oldname == "" {
-			oldname = fds[s.Args["dfd"]]
+			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
 		}
-		DeleteDir(analysis, s.PID, oldname)
+		DeleteDir(analysis, s.PID, s.Username, oldname)
 	},
-	"fchown": Nope,
+	"fchown": func(analysis *Analysis, s subject.Syscall) {
+		oldname := s.Args["filename"]
+		if oldname == "" {
+			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
+		}
+		UpdateFile(analysis, s.PID, s.Username, oldname)
+	},
 	"linkat": Nope,
 	"tkill": func(analysis *Analysis, s subject.Syscall) {
-		DeleteProcess(analysis, s.Args["pid"])
+		DeleteProcess(analysis, s.Args["pid"], s.Username)
 	},
 	"kill": func(analysis *Analysis, s subject.Syscall) {
-		DeleteProcess(analysis, s.Args["pid"])
+		DeleteProcess(analysis, s.Args["pid"], s.Username)
 	},
 	"clone": func(analysis *Analysis, s subject.Syscall) {
-		NewProcess(analysis, s.Ret)
+		NewProcess(analysis, s.Ret, s.Username)
 	},
 	"execve":   Nope,
 	"execveat": Nope,
 	"fork": func(analysis *Analysis, s subject.Syscall) {
-		NewProcess(analysis, s.Ret)
+		NewProcess(analysis, s.Ret, s.Username)
 	},
 	"vfork": func(analysis *Analysis, s subject.Syscall) {
-		NewProcess(analysis, s.Ret)
+		NewProcess(analysis, s.Ret, s.Username)
 	},
 	"tgkill": func(analysis *Analysis, s subject.Syscall) {
-		DeleteProcess(analysis, s.Args["pid"])
+		DeleteProcess(analysis, s.Args["pid"], s.Username)
 	},
 	"clone3": func(analysis *Analysis, s subject.Syscall) {
-		NewProcess(analysis, s.Ret)
+		NewProcess(analysis, s.Ret, s.Username)
 	},
 	"sethostname":   Nope,
 	"setdomainname": Nope,
 	"sysinfo":       Nope,
-	"fchdir": func(analysis *Analysis, s subject.Syscall) {
-		pidpath.SetPidPath(s.PID, fds[s.Args["fd"]])
-	},
-	"chdir": func(analysis *Analysis, s subject.Syscall) {
-		pidpath.SetPidPath(s.PID, fds[s.Args["filename"]])
-	},
+}
+
+func IsPasswd(pathname string) bool {
+	return pathname == "/etc/passwd"
+}
+
+func IsNet(pathname string) bool {
+	return strings.HasPrefix(pathname, "/proc/net")
+}
+
+func (analysis *Analysis) AnalysisUserPort(pid, username, pathname string) bool {
+	if IsPasswd(pathname) {
+		analysis.AnalysisUser(pid, username)
+		return true
+	}
+	if IsNet(pathname) {
+		analysis.AnalysisPort(pid, username)
+		return true
+	}
+	return false
+}
+
+func (analysis *Analysis) AnalysisUser(pid, username string) {
+	users := analysis.UserDriver.GetSubjects()
+	for _, user := range users {
+		if analysis.Storage.Get(user) == "" {
+			analysis.Storage.Add(user)
+			analysis.Sender.Send(subject.InitMessage(
+				"new",
+				"new",
+				hostinfo.GetHostInfo(),
+				user,
+				pid,
+				username))
+		}
+		if analysis.Storage.Exists(user) {
+			analysis.Storage.Update(user)
+			analysis.Sender.Send(subject.InitMessage(
+				"update",
+				"update",
+				hostinfo.GetHostInfo(),
+				user,
+				pid,
+				username))
+		}
+	}
+	for name, _ := range analysis.Storage.GetType(subject.UserT) {
+		_, err := analysis.UserDriver.GetUser(name)
+		if err != nil {
+			sub := subject.File{FullName: name}
+			analysis.Storage.Delete(sub)
+			analysis.Sender.Send(subject.InitMessage(
+				"delete",
+				"delete",
+				hostinfo.GetHostInfo(),
+				sub,
+				pid,
+				username))
+		}
+	}
+}
+
+func (analysis *Analysis) AnalysisPort(pid, username string) {
+	ports := analysis.PortDriver.GetSubjects()
+	for _, port := range ports {
+		if analysis.Storage.Get(port) == "" {
+			analysis.Storage.Add(port)
+			analysis.Sender.Send(subject.InitMessage(
+				"new",
+				"new",
+				hostinfo.GetHostInfo(),
+				port,
+				pid,
+				username))
+		}
+		if analysis.Storage.Exists(port) {
+			analysis.Storage.Update(port)
+			analysis.Sender.Send(subject.InitMessage(
+				"update",
+				"update",
+				hostinfo.GetHostInfo(),
+				port,
+				pid,
+				username))
+		}
+	}
+	for name, _ := range analysis.Storage.GetType(subject.PortTablesT) {
+		_, err := analysis.PortDriver.GetPort(name)
+		if err != nil {
+			port, _ := strconv.Atoi(name)
+			sub := subject.PortTables{Port: uint64(port)}
+			analysis.Storage.Delete(sub)
+			analysis.Sender.Send(subject.InitMessage(
+				"delete",
+				"delete",
+				hostinfo.GetHostInfo(),
+				sub,
+				pid,
+				username))
+		}
+	}
 }

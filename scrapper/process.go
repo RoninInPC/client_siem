@@ -28,12 +28,6 @@ func (s *ProcessScrapper) Scrape(channel chan subject.Subject, sleep time.Durati
 						pids = append(pids, f.PID)
 					}
 				}
-				for _, pid := range pids {
-					if !s.Driver.Exists(pid) {
-						i := slices.Index(pids, pid)
-						slices.Delete(pids, i, i)
-					}
-				}
 				time.Sleep(sleep)
 			}
 		}

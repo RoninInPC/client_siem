@@ -1,5 +1,7 @@
 github.com/RoninInPC/gosyscalltrace v1.0.3 h1:3N4BgaBDDw+J+YKbyfErqx+9RumJQc+1GQYAzTHa+o0=
 github.com/RoninInPC/gosyscalltrace v1.0.3/go.mod h1:2y27VxKLZUHcCdQF7OKEAVoa6vuGBEfW72LO2+FcZjQ=
+github.com/RoninInPC/pwdx v0.0.0-20250101102619-2648c3fb7274 h1:cGnBv6FLVSouuBp2C6/Mlf6jJS8bO7pLpQaHY+BrwmA=
+github.com/RoninInPC/pwdx v0.0.0-20250101102619-2648c3fb7274/go.mod h1:ZEeeCPI9hvuCWkBZdbLDSYW60y5WC+4+n2iD6T0i0m8=
 github.com/bastjan/netstat v1.0.0 h1:enyzPg7lNaOpdKdDHkyPdP+okVKdBgR9/YFnxku7IlE=
 github.com/bastjan/netstat v1.0.0/go.mod h1:gqJ1/1N3vzrMLk3bMSY2i9xjXe8dzfCVZGaIF19pvdo=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

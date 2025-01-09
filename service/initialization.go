@@ -6,14 +6,14 @@ import (
 	"client_siem/hash"
 	"client_siem/hostinfo"
 	"client_siem/sender"
-	"client_siem/storage"
+	"client_siem/storagesubjects"
 	"time"
 )
 
 type Initialization struct {
 	Drivers []drivers.Driver[subject.Subject]
 	Sender  sender.Sender
-	Storage storage.Storage
+	Storage storagesubjects.Storage
 	Key     string
 }
 

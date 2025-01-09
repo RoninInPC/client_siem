@@ -8,6 +8,7 @@ import (
 
 type Syscall struct {
 	gosyscalltrace.TraceInfo
+	Username string
 }
 
 func (m Syscall) JSON() string {

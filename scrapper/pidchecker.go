@@ -4,12 +4,12 @@ import (
 	"client_siem/drivers"
 	"client_siem/entity/subject"
 	"client_siem/entity/subject/notification"
-	"client_siem/storage"
+	"client_siem/storagesubjects"
 	"time"
 )
 
 type PIDChecker struct {
-	Storage    storage.Storage
+	Storage    storagesubjects.Storage
 	Driver     drivers.ProcessDriver
 	stopScrape chan bool
 }

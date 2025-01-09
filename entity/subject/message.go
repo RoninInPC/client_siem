@@ -16,13 +16,17 @@ type Message struct {
 	Time        time.Time
 	TypeSubject SubjectType
 	Json        string
+	PID         string
+	Username    string
 }
 
 func InitMessage(
 	message string,
 	typeMessage string,
 	hostInfo hostinfo.HostInfo,
-	subject Subject) Message {
+	subject Subject,
+	PID string,
+	Username string) Message {
 	return Message{
 		message,
 		typeMessage,
@@ -31,7 +35,9 @@ func InitMessage(
 		hostInfo.IPs,
 		time.Now(),
 		subject.Type(),
-		subject.JSON()}
+		subject.JSON(),
+		PID,
+		Username}
 }
 
 func (m Message) JSON() string {

@@ -57,6 +57,14 @@ func getUsers() ([]subject.User, error) {
 	return users, nil
 }
 
+func (userDriver UserDriver) GetUser(username string) (subject.User, error) {
+	user, err := user.Lookup(username)
+	if err != nil {
+		return subject.User{}, err
+	}
+	return UserToEntity(*user), nil
+}
+
 func UserToEntity(user user.User) subject.User {
 	return subject.User{
 		Uid:        user.Uid,

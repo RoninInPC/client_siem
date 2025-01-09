@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"client_siem/entity/subject"
+	"errors"
 	"github.com/bastjan/netstat"
 	"strconv"
 )
@@ -38,6 +39,15 @@ func GetTable() []subject.PortTables {
 			LocalRemotes: remotes})
 	}
 	return portTables
+}
+
+func (portTablesDriver PortTablesDriver) GetPort(port string) (subject.PortTables, error) {
+	for _, portInfo := range portTablesDriver.GetSubjects() {
+		if portInfo.Name() == port {
+			return portInfo, nil
+		}
+	}
+	return subject.PortTables{}, errors.New("Port not exist")
 }
 
 func ConnectionToEntity(con *netstat.Connection) subject.LocalRemote {

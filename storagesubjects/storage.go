@@ -1,4 +1,4 @@
-package storage
+package storagesubjects
 
 import "client_siem/entity/subject"
 

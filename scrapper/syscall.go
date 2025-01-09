@@ -3,6 +3,7 @@ package scrapper
 import (
 	"client_siem/entity/subject"
 	gtrace "github.com/RoninInPC/gosyscalltrace"
+	"os/user"
 	"time"
 )
 
@@ -595,28 +596,6 @@ func Init() SyscallScrapper {
 		GetRet:         true,
 		GetTime:        false,
 	})
-	b.AddSyscall(gtrace.Syscall{
-		SyscallName: "chdir",
-		Args: gtrace.Args{
-			{gtrace.S, "filename", true},
-		},
-		GetPID:         true,
-		GetProcessName: false,
-		GetUID:         true,
-		GetRet:         true,
-		GetTime:        false,
-	})
-	b.AddSyscall(gtrace.Syscall{
-		SyscallName: "fchdir",
-		Args: gtrace.Args{
-			{gtrace.D, "fd", false},
-		},
-		GetPID:         true,
-		GetProcessName: false,
-		GetUID:         true,
-		GetRet:         true,
-		GetTime:        false,
-	})
 	return SyscallScrapper{Bpftrace: b, stopScrape: make(chan bool)}
 }
 
@@ -632,7 +611,8 @@ func (s *SyscallScrapper) Scrape(channel chan subject.Subject, sleep time.Durati
 			default:
 
 				for f := range s.Bpftrace.Events() {
-					channel <- subject.Syscall{TraceInfo: f}
+					u, _ := user.LookupId(f.UID)
+					channel <- subject.Syscall{TraceInfo: f, Username: u.Username}
 				}
 
 			}
