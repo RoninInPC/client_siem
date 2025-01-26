@@ -11,18 +11,23 @@ import (
 type ProcessDriver struct {
 }
 
-func (processDriver ProcessDriver) GetSubjects() []subject.Process {
-	return GetProcesses()
+func (processDriver ProcessDriver) GetSubjects() []subject.Subject {
+	procs := GetProcesses()
+	processes := make([]subject.Subject, len(procs))
+	for i, proc := range procs {
+		processes[i] = proc
+	}
+	return processes
 }
 
 func GetProcesses() []subject.Process {
-	processes := make([]subject.Process, 0)
 	procs, err := process.Processes()
+	processes := make([]subject.Process, len(procs))
 	if err != nil {
 		return processes
 	}
-	for _, proc := range procs {
-		processes = append(processes, ProcessToEntity(proc))
+	for i, proc := range procs {
+		processes[i] = ProcessToEntity(proc)
 	}
 
 	return processes

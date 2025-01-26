@@ -18,7 +18,7 @@ func (storage *RedisStorageFD) Delete(pid, fd string) bool {
 	return storage.client.HDel(pid, fd).Err() == nil
 }
 
-func Init(address string, passwd string, db int) *RedisStorageFD {
+func InitFD(address string, passwd string, db int) *RedisStorageFD {
 	client := red.NewClient(
 		&red.Options{
 			Addr:     address,

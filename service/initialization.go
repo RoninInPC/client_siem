@@ -11,7 +11,7 @@ import (
 )
 
 type Initialization struct {
-	Drivers []drivers.Driver[subject.Subject]
+	Drivers []drivers.Driver
 	Sender  sender.Sender
 	Storage storagesubjects.Storage
 	Key     string
@@ -23,7 +23,7 @@ func (init Initialization) Work() {
 	for _, driver := range init.Drivers {
 		for _, s := range driver.GetSubjects() {
 			init.Storage.Add(s)
-			init.Sender.Send(subject.InitMessage("", "init", hostinfo.GetHostInfo(), s))
+			init.Sender.Send(subject.InitMessage("", "init", hostinfo.GetHostInfo(), s, "", ""))
 		}
 	}
 }

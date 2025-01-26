@@ -12,9 +12,13 @@ import (
 type UserDriver struct {
 }
 
-func (userDriver UserDriver) GetSubjects() []subject.User {
+func (userDriver UserDriver) GetSubjects() []subject.Subject {
 	users, _ := getUsers()
-	return users
+	subjects := make([]subject.Subject, len(users))
+	for i, u := range users {
+		subjects[i] = u
+	}
+	return subjects
 }
 
 func getUsers() ([]subject.User, error) {

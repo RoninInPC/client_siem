@@ -12,7 +12,7 @@ type ProcessScrapper struct {
 	stopScrape chan bool
 }
 
-func (s *ProcessScrapper) Scrape(channel chan subject.Subject, sleep time.Duration) {
+func (s ProcessScrapper) Scrape(channel chan subject.Subject, sleep time.Duration) {
 	s.stopScrape = make(chan bool)
 	pids := make([]string, 0)
 	go func() {
@@ -23,9 +23,10 @@ func (s *ProcessScrapper) Scrape(channel chan subject.Subject, sleep time.Durati
 				return
 			default:
 				for _, f := range s.Driver.GetSubjects() {
+					p := f.(subject.Process)
 					channel <- f
-					if !slices.Contains(pids, f.PID) {
-						pids = append(pids, f.PID)
+					if !slices.Contains(pids, p.PID) {
+						pids = append(pids, p.PID)
 					}
 				}
 				time.Sleep(sleep)
@@ -34,6 +35,6 @@ func (s *ProcessScrapper) Scrape(channel chan subject.Subject, sleep time.Durati
 	}()
 }
 
-func (s *ProcessScrapper) Stop() {
+func (s ProcessScrapper) Stop() {
 	s.stopScrape <- true
 }

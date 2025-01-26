@@ -10,8 +10,13 @@ type FileDriver struct {
 	Path string
 }
 
-func (fileDriver FileDriver) GetSubjects() []subject.File {
-	return fileSystemCopy(fileDriver.Path)
+func (fileDriver FileDriver) GetSubjects() []subject.Subject {
+	files := fileSystemCopy(fileDriver.Path)
+	subjects := make([]subject.Subject, len(files))
+	for i, file := range files {
+		subjects[i] = file
+	}
+	return subjects
 }
 
 func fileSystemCopy(path string) []subject.File {

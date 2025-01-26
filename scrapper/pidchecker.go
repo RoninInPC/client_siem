@@ -14,7 +14,13 @@ type PIDChecker struct {
 	stopScrape chan bool
 }
 
-func (s *PIDChecker) Scrape(channel chan subject.Subject, sleep time.Duration) {
+func InitPIDChecker(storage storagesubjects.Storage,
+	driver drivers.ProcessDriver,
+	stopScrape chan bool) PIDChecker {
+	return PIDChecker{Storage: storage, Driver: driver, stopScrape: stopScrape}
+}
+
+func (s PIDChecker) Scrape(channel chan subject.Subject, sleep time.Duration) {
 	s.stopScrape = make(chan bool)
 	go func() {
 		for {
@@ -37,6 +43,6 @@ func (s *PIDChecker) Scrape(channel chan subject.Subject, sleep time.Duration) {
 	}()
 }
 
-func (s *PIDChecker) Stop() {
+func (s PIDChecker) Stop() {
 	s.stopScrape <- true
 }

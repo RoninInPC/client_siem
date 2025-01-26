@@ -10,8 +10,13 @@ import (
 type PortTablesDriver struct {
 }
 
-func (portTablesDriver PortTablesDriver) GetSubjects() []subject.PortTables {
-	return GetTable()
+func (portTablesDriver PortTablesDriver) GetSubjects() []subject.Subject {
+	table := GetTable()
+	subjects := make([]subject.Subject, len(table))
+	for i, t := range table {
+		subjects[i] = t
+	}
+	return subjects
 }
 
 func GetTable() []subject.PortTables {
@@ -42,7 +47,7 @@ func GetTable() []subject.PortTables {
 }
 
 func (portTablesDriver PortTablesDriver) GetPort(port string) (subject.PortTables, error) {
-	for _, portInfo := range portTablesDriver.GetSubjects() {
+	for _, portInfo := range GetTable() {
 		if portInfo.Name() == port {
 			return portInfo, nil
 		}

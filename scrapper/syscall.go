@@ -12,7 +12,7 @@ type SyscallScrapper struct {
 	stopScrape chan bool
 }
 
-func Init() SyscallScrapper {
+func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 	b := gtrace.NewBpftrace("input.txt", "output.txt")
 	b.AddSyscall(gtrace.Syscall{
 		SyscallName: "copy_file_range",
@@ -596,10 +596,10 @@ func Init() SyscallScrapper {
 		GetRet:         true,
 		GetTime:        false,
 	})
-	return SyscallScrapper{Bpftrace: b, stopScrape: make(chan bool)}
+	return SyscallScrapper{Bpftrace: b, stopScrape: stopScrape}
 }
 
-func (s *SyscallScrapper) Scrape(channel chan subject.Subject, sleep time.Duration) {
+func (s SyscallScrapper) Scrape(channel chan subject.Subject, sleep time.Duration) {
 	s.stopScrape = make(chan bool)
 	s.Bpftrace.Trace()
 	go func() {
@@ -620,6 +620,6 @@ func (s *SyscallScrapper) Scrape(channel chan subject.Subject, sleep time.Durati
 	}()
 }
 
-func (s *SyscallScrapper) Stop() {
+func (s SyscallScrapper) Stop() {
 	s.stopScrape <- true
 }
