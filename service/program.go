@@ -4,6 +4,7 @@ import (
 	"client_siem/config"
 	"client_siem/drivers"
 	"client_siem/hash"
+	"client_siem/hostinfo"
 	"client_siem/scrapper"
 	"client_siem/sender"
 	redis2 "client_siem/storagefd/redis"
@@ -16,7 +17,8 @@ type Program struct {
 	AnalysisService Analysis
 }
 
-func Init(fileName string) Program {
+func InitProgram(fileName string) *Program {
+	hostinfo.HostInfoInit()
 	conf, err := config.ReadFromFile(fileName)
 	if err != nil {
 		panic(err)
@@ -31,11 +33,11 @@ func Init(fileName string) Program {
 		conf.RedisFDStorage.Password,
 		conf.RedisFDStorage.DB)
 	i := Initialization{
-		Key: conf.Key.PrivateKey,
+		Key:          conf.Key.PrivateKey,
+		FileScrapper: scrapper.FileScrapper{Driver: drivers.FileDriver{Path: "/"}},
 		Drivers: []drivers.Driver{
 			drivers.UserDriver{},
 			drivers.ProcessDriver{},
-			drivers.FileDriver{},
 			drivers.PortTablesDriver{}},
 		Storage: redisStorage,
 		Sender:  s,
@@ -49,13 +51,13 @@ func Init(fileName string) Program {
 		},
 		Storage:       redisStorage,
 		StorageFD:     redisFDStorage,
-		FileDriver:    drivers.FileDriver{},
+		FileDriver:    drivers.FileDriver{Path: "/"},
 		ProcessDriver: drivers.ProcessDriver{},
 		UserDriver:    drivers.UserDriver{},
 		PortDriver:    drivers.PortTablesDriver{},
 		SleepDuration: time.Minute * 10,
 	}
-	return Program{i, a}
+	return &Program{i, a}
 
 }
 

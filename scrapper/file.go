@@ -12,23 +12,9 @@ type FileScrapper struct {
 }
 
 func (s *FileScrapper) Scrape(channel chan subject.Subject, sleep time.Duration) {
-	s.stopScrape = make(chan bool)
-	go func() {
-		for {
-			select {
-			case <-s.stopScrape:
-				close(s.stopScrape)
-				return
-			default:
-				for _, f := range s.Driver.GetSubjects() {
-					channel <- f
-				}
-				time.Sleep(sleep)
-			}
-		}
-	}()
+	s.Driver.FileSystemCopy(channel)
 }
 
 func (s *FileScrapper) Stop() {
-	s.stopScrape <- true
+
 }

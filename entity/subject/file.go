@@ -8,7 +8,7 @@ import (
 
 type File struct {
 	FullName string
-	Content  []byte
+	//Content  []byte
 	Size     int64
 	Mode     string
 	Modified time.Time

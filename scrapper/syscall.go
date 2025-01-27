@@ -384,7 +384,7 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
-		SyscallName: "pwrite2",
+		SyscallName: "pwritev2",
 		Args: gtrace.Args{
 			{gtrace.D, "fd", false},
 			{gtrace.S, "vec", true},

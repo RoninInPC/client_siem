@@ -35,7 +35,11 @@ func GetProcesses() []subject.Process {
 
 func ProcessToEntity(proc *process.Process) subject.Process {
 	username, _ := proc.Username()
-	u, _ := user.Lookup(username)
+	u, err := user.Lookup(username)
+	uid := "0"
+	if err == nil {
+		uid = u.Uid
+	}
 	nice, _ := proc.Nice()
 	isRunning, _ := proc.IsRunning()
 	isBackground, _ := proc.Background()
@@ -48,7 +52,7 @@ func ProcessToEntity(proc *process.Process) subject.Process {
 
 	return subject.Process{
 		PID:           strconv.Itoa(int(proc.Pid)),
-		UID:           u.Uid,
+		UID:           uid,
 		Nice:          nice,
 		IsRunning:     isRunning,
 		IsBackGround:  isBackground,

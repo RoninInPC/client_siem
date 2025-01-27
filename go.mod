@@ -3,10 +3,9 @@ module client_siem
 go 1.23.2
 
 require (
-	github.com/RoninInPC/gosyscalltrace v1.0.3
+	github.com/RoninInPC/gosyscalltrace v1.0.4
 	github.com/RoninInPC/pwdx v0.0.0-20250101102619-2648c3fb7274
 	github.com/bastjan/netstat v1.0.0
-	github.com/deatil/go-md6 v1.0.0
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/shirou/gopsutil/v3 v3.24.5

@@ -35,15 +35,13 @@ func (a Analysis) Work() {
 		s.Scrape(channel, a.SleepDuration)
 	}
 
-	go func() {
+	func() {
 		for sub := range channel {
 			if sub.Type() == subject.SyscallT {
 				syscall := sub.(subject.Syscall)
-
 				if syscall.PID == pid {
 					continue
 				}
-
 				a.Sender.Send(subject.InitMessage(
 					"syscall",
 					"syscall",
