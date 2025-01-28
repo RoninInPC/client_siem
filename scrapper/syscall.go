@@ -2,6 +2,7 @@ package scrapper
 
 import (
 	"client_siem/entity/subject"
+	"fmt"
 	gtrace "github.com/RoninInPC/gosyscalltrace"
 	"os/user"
 	"time"
@@ -85,8 +86,8 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 	b.AddSyscall(gtrace.Syscall{
 		SyscallName: "dup3",
 		Args: gtrace.Args{
-			{gtrace.D, "olddfd", false},
-			{gtrace.D, "newdfd", false},
+			{gtrace.D, "oldfd", false},
+			{gtrace.D, "newfd", false},
 			{gtrace.D, "flags", false},
 		},
 		GetPID:         true,
@@ -216,7 +217,7 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		GetRet:         true,
 		GetTime:        false,
 	})
-	b.AddSyscall(gtrace.Syscall{
+	/*b.AddSyscall(gtrace.Syscall{
 		SyscallName: "write",
 		Args: gtrace.Args{
 			{gtrace.D, "fd", false},
@@ -227,7 +228,7 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		GetUID:         true,
 		GetRet:         true,
 		GetTime:        false,
-	})
+	})*/
 	b.AddSyscall(gtrace.Syscall{
 		SyscallName: "openat",
 		Args: gtrace.Args{
@@ -242,7 +243,7 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		GetRet:         true,
 		GetTime:        false,
 	})
-	b.AddSyscall(gtrace.Syscall{
+	/*b.AddSyscall(gtrace.Syscall{
 		SyscallName: "truncate",
 		Args: gtrace.Args{
 			{gtrace.S, "path", true},
@@ -253,7 +254,7 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		GetUID:         true,
 		GetRet:         true,
 		GetTime:        false,
-	})
+	})*/
 	b.AddSyscall(gtrace.Syscall{
 		SyscallName: "chroot",
 		Args: gtrace.Args{
@@ -609,10 +610,21 @@ func (s SyscallScrapper) Scrape(channel chan subject.Subject, sleep time.Duratio
 				close(s.stopScrape)
 				return
 			default:
-
 				for f := range s.Bpftrace.Events() {
-					u, _ := user.LookupId(f.UID)
-					channel <- subject.Syscall{TraceInfo: f, Username: u.Username}
+					if f.SyscallName == "" {
+						continue
+					}
+					fmt.Println("    ", f.SyscallName, f.Args)
+					u, err := user.LookupId(f.UID)
+					if err != nil {
+						if f.UID == "0" {
+							channel <- subject.Syscall{TraceInfo: f, Username: "root"}
+						} else {
+							channel <- subject.Syscall{TraceInfo: f, Username: ""}
+						}
+					} else {
+						channel <- subject.Syscall{TraceInfo: f, Username: u.Username}
+					}
 				}
 
 			}

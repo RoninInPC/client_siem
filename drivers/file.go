@@ -63,15 +63,18 @@ func (fileDriver FileDriver) Exists(filename string) bool {
 	return err == nil
 }
 
-func (fileDriver FileDriver) GetFile(filename string) subject.File {
+func (fileDriver FileDriver) GetFile(filename string) (subject.File, error) {
 	//bytes, _ := os.ReadFile(filename)
-	fi, _ := os.Stat(filename)
+	fi, err := os.Stat(filename)
+	if err != nil {
+		return subject.File{}, err
+	}
 	return subject.File{
 		FullName: filename,
 		//Content:  bytes,
 		Size:     fi.Size(),
 		Mode:     fi.Mode().String(),
-		Modified: fi.ModTime()}
+		Modified: fi.ModTime()}, nil
 }
 
 func (fileDriver FileDriver) FileSystemCopy(channel chan subject.Subject) {

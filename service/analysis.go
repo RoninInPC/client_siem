@@ -6,8 +6,8 @@ import (
 	"client_siem/hostinfo"
 	"client_siem/scrapper"
 	"client_siem/sender"
-	"client_siem/storagefd"
 	"client_siem/storagesubjects"
+	"fmt"
 	"github.com/RoninInPC/pwdx"
 	"os"
 	"path"
@@ -17,10 +17,10 @@ import (
 )
 
 type Analysis struct {
-	Scrappers     []scrapper.Scrapper
-	Sender        sender.Sender
-	Storage       storagesubjects.Storage
-	StorageFD     storagefd.StorageFD
+	Scrappers []scrapper.Scrapper
+	Sender    sender.Sender
+	Storage   storagesubjects.Storage
+	//StorageFD     storagefd.StorageFD
 	FileDriver    drivers.FileDriver
 	ProcessDriver drivers.ProcessDriver
 	UserDriver    drivers.UserDriver
@@ -49,7 +49,13 @@ func (a Analysis) Work() {
 					sub,
 					syscall.PID,
 					syscall.Username))
-				syscallAnalyticsMap[sub.Name()](&a, syscall)
+				function, exists := syscallAnalyticsMap[sub.Name()]
+				if exists {
+					function(&a, syscall)
+				} else {
+					println(sub.Name())
+				}
+
 			}
 			if sub.Type() == subject.ProcessEnd {
 				sub = subject.Process{PID: sub.Name()}
@@ -83,9 +89,11 @@ func (a Analysis) Work() {
 
 func GetFullFileNameByProcess(pid string, filename string) string {
 	pidInt, _ := strconv.Atoi(pid)
+	f := filename
 	if path.Base(filename) == filename {
-		return pwdx.Pwdx(pidInt).Dir() + filename
+		return pwdx.Pwdx(pidInt).Dir() + "/" + filename
 	}
+	println(pid, f, filename)
 	return filename
 }
 
@@ -127,10 +135,14 @@ func DeleteDir(a *Analysis, pid, username, filename string) {
 
 func UpdateFile(a *Analysis, pid, username, filename string) {
 	filename = GetFullFileNameByProcess(pid, filename)
+	println(pid, filename)
 	if a.AnalysisUserPort(pid, username, filename) {
 		return
 	}
-	sub := a.FileDriver.GetFile(filename)
+	sub, err := a.FileDriver.GetFile(filename)
+	if err != nil {
+		return
+	}
 	if !a.Storage.Exists(sub) {
 		a.Storage.Update(sub)
 		a.Sender.Send(subject.InitMessage(
@@ -179,12 +191,12 @@ func Nope(a *Analysis, s subject.Syscall) {
 }
 
 func Open(a *Analysis, pid, fd, name string) {
-	a.StorageFD.Add(pid, fd, name)
+	//a.StorageFD.Add(pid, fd, name)
 }
 
 func Close(a *Analysis, pid, username, fd string) {
-	UpdateFile(a, pid, username, a.StorageFD.Get(pid, fd))
-	a.StorageFD.Delete(pid, fd)
+	UpdateFile(a, pid, username, getFileNameByDescriptor(pid, fd))
+	//a.StorageFD.Delete(pid, fd)
 }
 
 var syscallAnalyticsMap = map[string]SyscallAnalytics{
@@ -202,23 +214,23 @@ var syscallAnalyticsMap = map[string]SyscallAnalytics{
 		oldname := s.Args["oldname"]
 		newname := s.Args["newname"]
 		if oldname == "" {
-			oldname = analysis.StorageFD.Get(s.PID, s.Args["olddfd"])
+			oldname = getFileNameByDescriptor(s.PID, s.Args["olddfd"])
 		}
 		if newname == "" {
-			newname = analysis.StorageFD.Get(s.PID, s.Args["newdfd"])
+			newname = getFileNameByDescriptor(s.PID, s.Args["newdfd"])
 		}
 		RenameFile(analysis, s.PID, s.Username, oldname, newname)
 	},
 	"dup3": func(analysis *Analysis, s subject.Syscall) {
-		Open(analysis, s.PID, s.Ret, analysis.StorageFD.Get(s.PID, s.Args["oldfd"]))
+		Open(analysis, s.PID, s.Ret, getFileNameByDescriptor(s.PID, s.Args["oldfd"]))
 	},
 	"dup": func(analysis *Analysis, s subject.Syscall) {
-		Open(analysis, s.PID, s.Ret, analysis.StorageFD.Get(s.PID, s.Args["oldfd"]))
+		Open(analysis, s.PID, s.Ret, getFileNameByDescriptor(s.PID, s.Args["oldfd"]))
 	},
 	"fchmodat": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
+			oldname = getFileNameByDescriptor(s.PID, s.Args["dfd"])
 		}
 		UpdateFile(analysis, s.PID, s.Username, oldname)
 	},
@@ -231,7 +243,7 @@ var syscallAnalyticsMap = map[string]SyscallAnalytics{
 	"openat2": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
+			oldname = getFileNameByDescriptor(s.PID, s.Args["dfd"])
 		}
 		Open(analysis, s.PID, s.Ret, oldname)
 	},
@@ -252,7 +264,7 @@ var syscallAnalyticsMap = map[string]SyscallAnalytics{
 		}
 	},
 	"dup2": func(analysis *Analysis, s subject.Syscall) {
-		Open(analysis, s.PID, s.Ret, analysis.StorageFD.Get(s.PID, s.Args["oldfd"]))
+		Open(analysis, s.PID, s.Ret, getFileNameByDescriptor(s.PID, s.Args["oldfd"]))
 	},
 	"creat": func(analysis *Analysis, s subject.Syscall) {
 		Open(analysis, s.PID, s.Ret, s.Args["filename"])
@@ -261,7 +273,7 @@ var syscallAnalyticsMap = map[string]SyscallAnalytics{
 	"openat": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
+			oldname = getFileNameByDescriptor(s.PID, s.Args["dfd"])
 		}
 		Open(analysis, s.PID, s.Ret, oldname)
 	},
@@ -278,17 +290,17 @@ var syscallAnalyticsMap = map[string]SyscallAnalytics{
 		oldname := s.Args["oldname"]
 		newname := s.Args["newname"]
 		if oldname == "" {
-			oldname = analysis.StorageFD.Get(s.PID, s.Args["olddfd"])
+			oldname = getFileNameByDescriptor(s.PID, s.Args["olddfd"])
 		}
 		if newname == "" {
-			newname = analysis.StorageFD.Get(s.PID, s.Args["newdfd"])
+			newname = getFileNameByDescriptor(s.PID, s.Args["newdfd"])
 		}
 		RenameFile(analysis, s.PID, s.Username, oldname, newname)
 	},
 	"fchownat": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
+			oldname = getFileNameByDescriptor(s.PID, s.Args["dfd"])
 		}
 		UpdateFile(analysis, s.PID, s.Username, oldname)
 	},
@@ -303,14 +315,14 @@ var syscallAnalyticsMap = map[string]SyscallAnalytics{
 	"unlinkat": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["pathname"]
 		if oldname == "" {
-			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
+			oldname = getFileNameByDescriptor(s.PID, s.Args["dfd"])
 		}
 		DeleteDir(analysis, s.PID, s.Username, oldname)
 	},
 	"fchown": func(analysis *Analysis, s subject.Syscall) {
 		oldname := s.Args["filename"]
 		if oldname == "" {
-			oldname = analysis.StorageFD.Get(s.PID, s.Args["dfd"])
+			oldname = getFileNameByDescriptor(s.PID, s.Args["dfd"])
 		}
 		UpdateFile(analysis, s.PID, s.Username, oldname)
 	},
@@ -442,4 +454,12 @@ func (analysis *Analysis) AnalysisPort(pid, username string) {
 				username))
 		}
 	}
+}
+
+func getFileNameByDescriptor(pid string, fd string) string {
+	filename, err := os.Readlink(fmt.Sprintf("/proc/%s/fd/%s", pid, fd))
+	if err != nil {
+		return ""
+	}
+	return filename
 }

@@ -7,7 +7,6 @@ import (
 	"client_siem/hostinfo"
 	"client_siem/scrapper"
 	"client_siem/sender"
-	redis2 "client_siem/storagefd/redis"
 	"client_siem/storagesubjects/redis"
 	"time"
 )
@@ -28,10 +27,10 @@ func InitProgram(fileName string) *Program {
 		conf.RedisSubjectBase.Address,
 		conf.RedisSubjectBase.Password,
 		conf.RedisSubjectBase.DB, hash.ToMD5)
-	redisFDStorage := redis2.InitFD(
-		conf.RedisFDStorage.Address,
-		conf.RedisFDStorage.Password,
-		conf.RedisFDStorage.DB)
+	/*redisFDStorage := redis2.InitFD(
+	conf.RedisFDStorage.Address,
+	conf.RedisFDStorage.Password,
+	conf.RedisFDStorage.DB)*/
 	i := Initialization{
 		Key:          conf.Key.PrivateKey,
 		FileScrapper: scrapper.FileScrapper{Driver: drivers.FileDriver{Path: "/"}},
@@ -49,13 +48,13 @@ func InitProgram(fileName string) *Program {
 			scrapper.InitSyscallScrapper(c),
 			scrapper.InitPIDChecker(redisStorage, drivers.ProcessDriver{}, c),
 		},
-		Storage:       redisStorage,
-		StorageFD:     redisFDStorage,
+		Storage: redisStorage,
+		//StorageFD:     redisFDStorage,
 		FileDriver:    drivers.FileDriver{Path: "/"},
 		ProcessDriver: drivers.ProcessDriver{},
 		UserDriver:    drivers.UserDriver{},
 		PortDriver:    drivers.PortTablesDriver{},
-		SleepDuration: time.Minute * 10,
+		SleepDuration: time.Second * 10,
 	}
 	return &Program{i, a}
 
@@ -63,6 +62,6 @@ func InitProgram(fileName string) *Program {
 
 func (program *Program) Work() {
 	program.InitService.Work()
-	time.Sleep(time.Second * 10)
+	//time.Sleep(time.Second * 10)
 	program.AnalysisService.Work()
 }
