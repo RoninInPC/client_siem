@@ -76,6 +76,34 @@ func (processDriver ProcessDriver) Exists(pid string) bool {
 
 func (processDriver ProcessDriver) GetProcess(pid string) subject.Process {
 	p, _ := strconv.Atoi(pid)
-	pr, _ := process.NewProcess(int32(p))
-	return ProcessToEntity(pr)
+	proces, _ := process.Processes()
+	for _, proc := range proces {
+		if proc.Pid == int32(p) {
+			return ProcessToEntity(proc)
+		}
+	}
+	return subject.Process{}
+}
+
+func (processDriver ProcessDriver) IsChild(pid string, parentPid string) bool {
+	p, _ := strconv.Atoi(pid)
+	parent, _ := strconv.Atoi(parentPid)
+	proces, _ := process.Processes()
+	for _, proc := range proces {
+		if proc.Pid == int32(p) {
+			if proc.Pid == int32(parent) {
+				return true
+			}
+			for {
+				proc, err := proc.Parent()
+				if err != nil {
+					return false
+				}
+				if proc.Pid == int32(parent) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

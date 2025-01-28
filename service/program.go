@@ -54,7 +54,7 @@ func InitProgram(fileName string) *Program {
 		ProcessDriver: drivers.ProcessDriver{},
 		UserDriver:    drivers.UserDriver{},
 		PortDriver:    drivers.PortTablesDriver{},
-		SleepDuration: time.Second * 10,
+		SleepDuration: time.Second,
 	}
 	return &Program{i, a}
 
@@ -62,6 +62,6 @@ func InitProgram(fileName string) *Program {
 
 func (program *Program) Work() {
 	program.InitService.Work()
-	//time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 2)
 	program.AnalysisService.Work()
 }

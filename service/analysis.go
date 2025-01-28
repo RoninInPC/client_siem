@@ -39,7 +39,7 @@ func (a Analysis) Work() {
 		for sub := range channel {
 			if sub.Type() == subject.SyscallT {
 				syscall := sub.(subject.Syscall)
-				if syscall.PID == pid {
+				if a.ProcessDriver.IsChild(syscall.PID, pid) {
 					continue
 				}
 				a.Sender.Send(subject.InitMessage(

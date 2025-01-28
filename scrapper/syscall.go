@@ -4,6 +4,7 @@ import (
 	"client_siem/entity/subject"
 	"fmt"
 	gtrace "github.com/RoninInPC/gosyscalltrace"
+	"os"
 	"os/user"
 	"time"
 )
@@ -15,6 +16,7 @@ type SyscallScrapper struct {
 
 func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 	b := gtrace.NewBpftrace("input.txt", "output.txt")
+	pid := os.Getpid()
 	b.AddSyscall(gtrace.Syscall{
 		SyscallName: "copy_file_range",
 		Args: gtrace.Args{
@@ -25,10 +27,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "len", false},
 			{gtrace.D, "flags", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -38,10 +41,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "flags", false},
 			{gtrace.D, "mode", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -50,10 +54,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "filename", true},
 			{gtrace.D, "mode", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -63,10 +68,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "user", false},
 			{gtrace.D, "group", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -77,10 +83,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "newdfd", false},
 			{gtrace.S, "newname", true},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -90,10 +97,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "newfd", false},
 			{gtrace.D, "flags", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -103,10 +111,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "filename", true},
 			{gtrace.D, "mode", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -114,10 +123,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		Args: gtrace.Args{
 			{gtrace.D, "fildes", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -126,10 +136,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "oldname", true},
 			{gtrace.S, "newname", true},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -138,10 +149,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "fd", false},
 			{gtrace.D, "mode", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -152,10 +164,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "how", false},
 			{gtrace.D, "usize", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -163,10 +176,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		Args: gtrace.Args{
 			{gtrace.S, "pathname", true},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -174,10 +188,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		Args: gtrace.Args{
 			{gtrace.D, "fd", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -187,10 +202,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "max_fd", false},
 			{gtrace.D, "flags", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -199,10 +215,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "oldfd", false},
 			{gtrace.D, "newfd", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -211,10 +228,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "pathname", true},
 			{gtrace.D, "mode", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	/*b.AddSyscall(gtrace.Syscall{
@@ -226,7 +244,7 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})*/
 	b.AddSyscall(gtrace.Syscall{
@@ -237,10 +255,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "flags", false},
 			{gtrace.D, "mode", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	/*b.AddSyscall(gtrace.Syscall{
@@ -249,10 +268,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "path", true},
 			{gtrace.D, "length", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})*/
 	b.AddSyscall(gtrace.Syscall{
@@ -260,10 +280,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		Args: gtrace.Args{
 			{gtrace.S, "filename", true},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -273,10 +294,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "mode", false},
 			{gtrace.D, "dev", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -285,10 +307,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "pathname", true},
 			{gtrace.D, "mode", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -297,10 +320,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "fd", false},
 			{gtrace.D, "length", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -312,10 +336,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "newname", true},
 			{gtrace.D, "flags", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -327,10 +352,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "group", false},
 			{gtrace.D, "flag", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -338,10 +364,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		Args: gtrace.Args{
 			{gtrace.S, "u_name", true},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -353,10 +380,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "pos_l", false},
 			{gtrace.D, "pos_h", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -364,10 +392,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		Args: gtrace.Args{
 			{gtrace.S, "pathname", true},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -378,10 +407,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "count", false},
 			{gtrace.D, "pos", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -394,10 +424,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "pos_h", false},
 			{gtrace.D, "flags", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -406,10 +437,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "oldname", true},
 			{gtrace.S, "newname", true},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -418,10 +450,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "dfd", false},
 			{gtrace.S, "pathname", true},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -431,10 +464,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "user", false},
 			{gtrace.D, "group", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -446,10 +480,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "newname", true},
 			{gtrace.D, "flags", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -458,10 +493,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "pid", false},
 			{gtrace.D, "sig", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -470,10 +506,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "pid", false},
 			{gtrace.D, "sig", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -483,10 +520,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "pid", false},
 			{gtrace.D, "sig", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -498,10 +536,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "child_tidptr", false},
 			{gtrace.D, "tls", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -510,10 +549,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "uargs", true},
 			{gtrace.D, "size", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -523,10 +563,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "argv", true},
 			{gtrace.D, "envp", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -538,28 +579,31 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.D, "envp", false},
 			{gtrace.D, "flags", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
 		SyscallName:    "fork",
 		Args:           gtrace.Args{},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
 		SyscallName:    "vfork",
 		Args:           gtrace.Args{},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -568,10 +612,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "name", true},
 			{gtrace.D, "len", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -580,10 +625,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 			{gtrace.S, "name", true},
 			{gtrace.D, "len", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	b.AddSyscall(gtrace.Syscall{
@@ -591,10 +637,11 @@ func InitSyscallScrapper(stopScrape chan bool) SyscallScrapper {
 		Args: gtrace.Args{
 			{gtrace.D, "info", false},
 		},
+		PID:            pid,
 		GetPID:         true,
 		GetProcessName: false,
 		GetUID:         true,
-		GetRet:         true,
+		GetRet:         false,
 		GetTime:        false,
 	})
 	return SyscallScrapper{Bpftrace: b, stopScrape: stopScrape}
@@ -614,7 +661,7 @@ func (s SyscallScrapper) Scrape(channel chan subject.Subject, sleep time.Duratio
 					if f.SyscallName == "" {
 						continue
 					}
-					fmt.Println("    ", f.SyscallName, f.Args)
+					fmt.Println("    ", f.PID, f.Process, f.Args, f.SyscallName)
 					u, err := user.LookupId(f.UID)
 					if err != nil {
 						if f.UID == "0" {
